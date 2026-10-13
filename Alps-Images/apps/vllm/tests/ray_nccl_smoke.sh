@@ -29,6 +29,10 @@ export HEAD_NODE HEAD_IP RAY_PORT MASTER_PORT NUM_NODES WORLD_SIZE FAIL_FILE
 export RAY_TMPDIR="/tmp/ray-${SLURM_JOB_ID:-ci}-${NODE_ID}"
 export RAY_DEDUP_LOGS="0"
 
+if [[ -d /opt/aiter-jit ]]; then
+    export AITER_JIT_DIR="${AITER_JIT_DIR:-/opt/aiter-jit}"
+fi
+
 cleanup() {
     local rc=$?
     if [[ "${NODE_ID}" == "0" ]]; then
