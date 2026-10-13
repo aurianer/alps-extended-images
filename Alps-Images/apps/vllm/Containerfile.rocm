@@ -48,6 +48,7 @@ ENV VLLM_TARGET_DEVICE="${VLLM_TARGET_DEVICE}" \
     UCCL_SOCKET_IFNAME="hsn"
 
 COPY Alps-Images/common/package-helpers.sh /opt/alps/package-helpers.sh
+COPY Alps-Images/apps/vllm/sources/install-aiter.sh /opt/alps/install-aiter.sh
 
 COPY Alps-Images/apps/vllm/patches/ /opt/alps-vllm-patches/
 
@@ -112,21 +113,13 @@ RUN set -eux; \
       setuptools-rust \
       setuptools-scm \
       wheel; \
-    rm -rf /opt/aiter /tmp/aiter-dist; \
-    git clone --depth=1 --branch "${AITER_REF}" --recurse-submodules --shallow-submodules \
-      "${AITER_REPO}" /opt/aiter; \
-    test "$(git -C /opt/aiter rev-parse HEAD)" = "${AITER_COMMIT}"; \
-    cd /opt/aiter; \
-    pip_install python --no-cache-dir -r requirements.txt; \
-    mkdir -p /tmp/aiter-dist; \
-    echo "Building AITER without multi-architecture AOT; runtime JIT target: ${PYTORCH_ROCM_ARCH}"; \
-    env -u ROCM_PATH -u HIP_PATH \
-      PREBUILD_KERNELS=0 \
-      AITER_USE_SYSTEM_TRITON=1 \
+    AITER_REPO="${AITER_REPO}" \
+      AITER_REF="${AITER_REF}" \
+      AITER_COMMIT="${AITER_COMMIT}" \
       GPU_ARCHS="${PYTORCH_ROCM_ARCH}" \
       MAX_JOBS="${MAX_JOBS}" \
-      python setup.py bdist_wheel --dist-dir /tmp/aiter-dist; \
-    pip_install python --no-cache-dir --no-deps /tmp/aiter-dist/*.whl; \
+      AITER_JIT_SEED_DIR=/opt/aiter-jit \
+      bash /opt/alps/install-aiter.sh; \
     rm -rf /opt/uccl /tmp/uccl-ep-build; \
     git init -q /opt/uccl; \
     git -C /opt/uccl remote add origin "${UCCL_REPO}"; \
@@ -245,14 +238,6 @@ COPY Alps-Images/apps/vllm/patches/mooncake /opt/alps/mooncake-patches
 RUN set -eux; \
     chmod u+x /opt/alps/install-mooncake.sh; \
     /opt/alps/install-mooncake.sh rocm
-
-# AITER kernels (MLA prefill/decode, fused MoE, norms); see sources/install-aiter.sh.
-ENV AITER_JIT_DIR="/opt/aiter-jit"
-COPY Alps-Images/apps/vllm/sources/install-aiter.sh /opt/alps/install-aiter.sh
-
-RUN set -eux; \
-    chmod u+x /opt/alps/install-aiter.sh; \
-    /opt/alps/install-aiter.sh
 
 # Tests shipped with the image
 COPY Alps-Images/apps/vllm/tests/ /opt/tests/vllm/
