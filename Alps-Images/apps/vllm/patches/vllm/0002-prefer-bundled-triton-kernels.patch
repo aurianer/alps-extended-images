@@ -13,12 +13,11 @@ pinned and bundled by vLLM so an incomplete base package cannot shadow it.
 diff --git a/vllm/utils/import_utils.py b/vllm/utils/import_utils.py
 --- a/vllm/utils/import_utils.py
 +++ b/vllm/utils/import_utils.py
-@@ -59,20 +59,20 @@ def import_triton_kernels():
-     """
--    For convenience, prioritize triton_kernels that is available in
+@@ -57,19 +57,19 @@ def import_triton_kernels():
+-    """For convenience, prioritize triton_kernels that is available in
 -    `site-packages`. Use `vllm.third_party.triton_kernels` as a fall-back.
-+    Prefer the Triton kernels pinned and bundled by vLLM. Use a package from
-+    `site-packages` only as a fall-back.
++    """Prefer the Triton kernels pinned and bundled by vLLM.
++    Use a package from `site-packages` only as a fall-back.
      """
 -    if _has_module("triton_kernels"):
 -        import triton_kernels

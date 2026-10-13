@@ -20,7 +20,7 @@ LABEL org.opencontainers.image.source="${OCI_SOURCE}" \
       com.cscs.alps.git.commit_short="${CSCS_ALPS_GIT_COMMIT_SHORT}"
 
 ARG VLLM_REPO="https://github.com/vllm-project/vllm.git"
-ARG VLLM_REF="v0.30.0"
+ARG VLLM_REF="v0.31.0"
 ARG UCCL_REPO="https://github.com/uccl-project/uccl.git"
 ARG UCCL_COMMIT="e22a3e8fcd636f7efbbd90900458087a41ff73ce"
 ARG UCCL_NANOBIND_VERSION="3.0.1"
