@@ -19,6 +19,12 @@ The ROCm variant keeps a GPU-less-safe build-time smoke check: `import vllm` run
 
 Older vLLM releases may need fewer changes. Releases `0.22` and older are suspected to work without these compatibility patches, but that still needs to be verified against the Alps CUDA/HPC stack.
 
+## AITER (ROCm variant only)
+
+The ROCm variant installs [AITER](https://github.com/ROCm/aiter), AMD's AI Tensor Engine for ROCm, installed via `sources/install-aiter.sh`. It provides the MLA prefill kernels vLLM needs for MLA models (DeepSeek, Kimi, GLM) and also supplies the fused MoE, MLA decode, RMS norm and intra-node all-reduce kernels that vLLM enables with `VLLM_ROCM_USE_AITER=1` (vLLM's default is off; set it in the EDF or job environment). GLM-5.x requires AITER: its sparse MLA attention only runs on vLLM's `ROCM_AITER_MLA_SPARSE` backend on ROCm.
+
+Kernels are JIT-compiled with hipcc on first use. The image sets `AITER_JIT_DIR=/opt/aiter-jit`, which holds the modules compiled at build time. To keep other kernels across jobs, point `AITER_JIT_DIR` (and `AITER_ROOT_DIR`) at a persistent, writable path such as scratch, seeded with `cp -r /opt/aiter-jit/. <path>`; otherwise every job recompiles into the container overlay.
+
 ## Mooncake (CXI KV transfer)
 
 Both variants additionally install the [Mooncake](https://github.com/kvcache-ai/Mooncake) transfer engine with the HPE Slingshot (CXI) backend (`USE_CXI`, [kvcache-ai/Mooncake#2535](https://github.com/kvcache-ai/Mooncake/pull/2535)). It is built from a pinned tag by `sources/install-mooncake.sh` (which is part of the app content hash) and installed as the `mooncake-transfer-engine` wheel, providing the `mooncake.engine` and `mooncake.store` modules used by vLLM's `MooncakeConnector` and `MooncakeStoreConnector` KV connectors.
