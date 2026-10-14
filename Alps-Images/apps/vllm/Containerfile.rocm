@@ -50,12 +50,15 @@ ENV VLLM_TARGET_DEVICE="${VLLM_TARGET_DEVICE}" \
 COPY Alps-Images/common/package-helpers.sh /opt/alps/package-helpers.sh
 COPY Alps-Images/apps/vllm/sources/install-aiter.sh /opt/alps/install-aiter.sh
 
-COPY Alps-Images/apps/vllm/patches/ /opt/alps-vllm-patches/
+COPY Alps-Images/apps/vllm/patches/common/uccl/ /opt/alps-uccl-patches/
+COPY Alps-Images/apps/vllm/patches/rocm/uccl/ /opt/alps-uccl-patches/
+COPY Alps-Images/apps/vllm/patches/common/vllm/ /opt/alps-vllm-patches/
+COPY Alps-Images/apps/vllm/patches/rocm/vllm/ /opt/alps-vllm-rocm-patches/
 
 RUN set -eux; \
     source /opt/alps/package-helpers.sh; \
     mkdir -p /opt/alps; \
-    python -c 'import importlib.metadata as m; names = ("torch", "triton"); installed = {d.metadata["Name"].lower(): d.version for d in m.distributions() if d.metadata["Name"]}; missing = [n for n in names if n not in installed]; assert not missing, f"missing base packages: {missing}"; print("\n".join(f"{n}=={installed[n]}" for n in names))' > /opt/alps/vllm-base-pins.txt; \
+    python -c 'import importlib.metadata as m; names = ("torch", "triton"); named = ((d.metadata.get("Name"), d.version) for d in m.distributions()); installed = {name.lower(): version for name, version in named if isinstance(name, str) and name}; missing = [n for n in names if n not in installed]; assert not missing, f"missing base packages: {missing}"; print("\n".join(f"{n}=={installed[n]}" for n in names))' > /opt/alps/vllm-base-pins.txt; \
     export PIP_CONSTRAINT=/opt/alps/vllm-base-pins.txt; \
     cat "${PIP_CONSTRAINT}"; \
     vllm_apt_build_deps=( \
@@ -99,7 +102,7 @@ RUN set -eux; \
     export PATH="${ROCM_BUILD_PREFIX}/bin:${ROCM_BUILD_PREFIX}/llvm/bin:${PATH}"; \
     rocm_libdir="${ROCM_BUILD_PREFIX}/lib64"; \
     test -d "${rocm_libdir}" || rocm_libdir="${ROCM_BUILD_PREFIX}/lib"; \
-    export LD_LIBRARY_PATH="${rocm_libdir}:${LD_LIBRARY_PATH:-}"; \
+    export LD_LIBRARY_PATH="${rocm_libdir}${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}"; \
     pip_install python --no-cache-dir --upgrade \
       'cmake<4' \
       Cython \
@@ -126,13 +129,14 @@ RUN set -eux; \
     git -C /opt/uccl fetch --depth=1 origin "${UCCL_COMMIT}"; \
     git -C /opt/uccl checkout -q --detach FETCH_HEAD; \
     test "$(git -C /opt/uccl rev-parse HEAD)" = "${UCCL_COMMIT}"; \
-    shopt -s nullglob; uccl_patch_files=(/opt/alps-vllm-patches/uccl/*.patch); shopt -u nullglob; \
+    shopt -s nullglob; uccl_patch_files=(/opt/alps-uccl-patches/*.patch); shopt -u nullglob; \
     for patch_file in "${uccl_patch_files[@]}"; do \
       echo "Applying UCCL patch: ${patch_file}"; \
       git -C /opt/uccl apply --check "${patch_file}"; \
       git -C /opt/uccl apply "${patch_file}"; \
     done; \
-    uccl_site_packages="$(python -c 'import site; print(site.getsitepackages()[0])')"; \
+    uccl_site_packages="$(python -c 'import site; paths = site.getsitepackages(); print(paths[0] if paths else "")')"; \
+    test -n "${uccl_site_packages}" || { echo "ERROR: site-packages not found" >&2; exit 1; }; \
     cd /opt/uccl/ep; \
     LIBFABRIC_HOME=/usr \
       USE_LIBFABRIC_CXI=1 \
@@ -153,7 +157,7 @@ RUN set -eux; \
       export VLLM_VERSION_OVERRIDE="${VLLM_REF#v}"; \
     fi; \
     shopt -s nullglob; \
-    vllm_patch_files=(/opt/alps-vllm-patches/*.patch /opt/alps-vllm-patches/vllm/*.patch); \
+    vllm_patch_files=(/opt/alps-vllm-rocm-patches/*.patch /opt/alps-vllm-patches/*.patch); \
     shopt -u nullglob; \
     for patch_file in "${vllm_patch_files[@]}"; do \
       echo "Applying vLLM patch: ${patch_file}"; \
@@ -233,7 +237,7 @@ RUN set -eux; \
 
 # Mooncake transfer engine (CXI)
 COPY Alps-Images/apps/vllm/sources/install-mooncake.sh /opt/alps/install-mooncake.sh
-COPY Alps-Images/apps/vllm/patches/mooncake /opt/alps/mooncake-patches
+COPY Alps-Images/apps/vllm/patches/common/mooncake /opt/alps/mooncake-patches
 
 RUN set -eux; \
     chmod u+x /opt/alps/install-mooncake.sh; \

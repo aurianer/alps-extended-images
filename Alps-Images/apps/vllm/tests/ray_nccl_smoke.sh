@@ -136,11 +136,10 @@ while True:
 class Worker:
     def info(self):
         import socket
-        from ray.util import get_node_ip_address
 
         return {
             "host": socket.gethostname(),
-            "ip": get_node_ip_address(),
+            "ip": socket.gethostbyname(socket.gethostname()),
         }
 
     def run(self, rank, world_size, master_addr, master_port):

@@ -11,6 +11,8 @@ The CUDA image also installs Run:ai Model Streamer `0.16.1`. UCCL-EP remains its
 
 Both builds constrain Python package installation to the Torch and Triton versions supplied by their canonical base images; the CUDA build also preserves base-provided TorchVision and TorchAudio versions. A final image check rejects dependency resolution that replaces any of those packages. Runtime Python ignores user-site packages (`PYTHONNOUSERSITE=1`). Build-time package installation uses `package-helpers.sh`, which routes pip through the CSCS PyPI proxy without forcing that index on image users. Image labels record the pinned UCCL revision and, where applicable, the AITER revision and Model Streamer version.
 
+Patch inputs are split under `patches/common/`, `patches/cuda/`, and `patches/rocm/`. Each canonical app hash includes the common set and only its accelerator-specific set, so ROCm-only compatibility changes do not invalidate the CUDA image.
+
 The CUDA vLLM source build uses 64 build jobs and four NVCC threads; its UCCL extension build uses 16 jobs. All three remain explicit build-argument overrides for controlled builders.
 
 The two-node CUDA and ROCm CI tests import both UCCL modules, construct a low-latency UCCL-EP buffer across eight GPUs, and verify an identity dispatch/combine round trip. This exercises CXI endpoint setup, GPU-memory registration, and the UCCL data path in addition to the Ray NCCL/RCCL all-reduce.
@@ -33,7 +35,7 @@ Both variants additionally install the [Mooncake](https://github.com/kvcache-ai/
 
 Mooncake is compiled against the libfabric installed by the Alps base image (`/usr`), so it always matches the stack's libfabric version and shares a single in-process libfabric instance with the aws-ofi-nccl NCCL plugin. This is deliberate: a second, bundled libfabric would race for the CXI devices and leave one consumer with an empty provider list.
 
-`patches/mooncake/` fixes CXI device discovery in the Mooncake store client, which otherwise comes up without a transport.
+`patches/common/mooncake/` fixes CXI device discovery in the Mooncake store client, which otherwise comes up without a transport.
 
 On Slingshot, select the CXI transport in the extra config instead of the default `rdma` protocol, e.g.:
 

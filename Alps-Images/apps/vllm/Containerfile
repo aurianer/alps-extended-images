@@ -50,14 +50,15 @@ ENV VLLM_TARGET_DEVICE="${VLLM_TARGET_DEVICE}" \
 
 COPY Alps-Images/common/package-helpers.sh /opt/alps/package-helpers.sh
 
-COPY Alps-Images/apps/vllm/patches/uccl/ /opt/alps-uccl-patches/
-COPY Alps-Images/apps/vllm/patches/vllm/ /opt/alps-vllm-patches/
-COPY Alps-Images/apps/vllm/patches/vllm-cuda/ /opt/alps-vllm-cuda-patches/
+COPY Alps-Images/apps/vllm/patches/common/uccl/ /opt/alps-uccl-patches/
+COPY Alps-Images/apps/vllm/patches/cuda/uccl/ /opt/alps-uccl-patches/
+COPY Alps-Images/apps/vllm/patches/common/vllm/ /opt/alps-vllm-patches/
+COPY Alps-Images/apps/vllm/patches/cuda/vllm/ /opt/alps-vllm-cuda-patches/
 
 RUN set -eux; \
     source /opt/alps/package-helpers.sh; \
     mkdir -p /opt/alps; \
-    python -c 'import importlib.metadata as m; names = ("torch", "torchvision", "torchaudio", "triton"); installed = {d.metadata["Name"].lower(): d.version for d in m.distributions() if d.metadata["Name"]}; missing = [n for n in ("torch", "triton") if n not in installed]; assert not missing, f"missing base packages: {missing}"; print("\n".join(f"{n}=={installed[n]}" for n in names if n in installed))' > /opt/alps/vllm-base-pins.txt; \
+    python -c 'import importlib.metadata as m; names = ("torch", "torchvision", "torchaudio", "triton"); named = ((d.metadata.get("Name"), d.version) for d in m.distributions()); installed = {name.lower(): version for name, version in named if isinstance(name, str) and name}; missing = [n for n in ("torch", "triton") if n not in installed]; assert not missing, f"missing base packages: {missing}"; print("\n".join(f"{n}=={installed[n]}" for n in names if n in installed))' > /opt/alps/vllm-base-pins.txt; \
     export PIP_CONSTRAINT=/opt/alps/vllm-base-pins.txt; \
     cat "${PIP_CONSTRAINT}"; \
     vllm_apt_build_deps=( \
@@ -112,7 +113,8 @@ RUN set -eux; \
       git -C /tmp/uccl apply --check "${patch_file}"; \
       git -C /tmp/uccl apply "${patch_file}"; \
     done; \
-    uccl_site_packages="$(python -c 'import site; print(site.getsitepackages()[0])')"; \
+    uccl_site_packages="$(python -c 'import site; paths = site.getsitepackages(); print(paths[0] if paths else "")')"; \
+    test -n "${uccl_site_packages}" || { echo "ERROR: site-packages not found" >&2; exit 1; }; \
     cd /tmp/uccl/ep; \
     LIBFABRIC_HOME=/usr \
       USE_LIBFABRIC_CXI=1 \
@@ -225,7 +227,7 @@ RUN set -eux; \
 
 # Mooncake transfer engine (CXI)
 COPY Alps-Images/apps/vllm/sources/install-mooncake.sh /opt/alps/install-mooncake.sh
-COPY Alps-Images/apps/vllm/patches/mooncake /opt/alps/mooncake-patches
+COPY Alps-Images/apps/vllm/patches/common/mooncake /opt/alps/mooncake-patches
 
 RUN set -eux; \
     chmod +x /opt/alps/install-mooncake.sh; \
