@@ -17,6 +17,7 @@ Kernels are JIT-compiled with hipcc on first use. The image sets `AITER_JIT_DIR=
 The patches in `patches/aiter/` are applied to the AITER sources at build time, in name order, until they are merged upstream:
 
 - `0001-mi300a-xcd-count.patch`: derive the XCD count from the GPU (6 on MI300A) instead of assuming 8.
+- `0002`/`0003`: tuned fused MoE and blockscale GEMM configs for GLM-5.3 FP8 on MI300A (gfx942, 228 CUs). AITER merges them from `aiter/configs/model_configs/` automatically. Do not set `GPU_ARCHS` in the runtime environment: with it, AITER generates the GEMM module for 304 CUs (MI300X) and the 228-CU rows fail at runtime.
 
 ## Mooncake (CXI KV transfer)
 
