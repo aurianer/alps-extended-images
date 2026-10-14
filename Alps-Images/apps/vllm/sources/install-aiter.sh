@@ -12,7 +12,7 @@
 #   AITER_COMMIT        exact commit expected for AITER_REF (required)
 #   GPU_ARCHS           semicolon-separated gfx targets (required)
 #   MAX_JOBS            maximum parallel build jobs (default: 32)
-#   AITER_JIT_SEED_DIR  immutable core-module seed (default: /opt/aiter-jit)
+#   AITER_JIT_DIR       writable preseeded runtime cache (default: /opt/aiter-jit)
 #   ALPS_PACKAGE_HELPERS package helper path (default: /opt/alps/package-helpers.sh)
 
 set -euo pipefail
@@ -22,7 +22,7 @@ AITER_REF="${AITER_REF:?AITER_REF is required}"
 AITER_COMMIT="${AITER_COMMIT:?AITER_COMMIT is required}"
 GPU_ARCHS="${GPU_ARCHS:?GPU_ARCHS is required}"
 MAX_JOBS="${MAX_JOBS:-32}"
-AITER_JIT_SEED_DIR="${AITER_JIT_SEED_DIR:-/opt/aiter-jit}"
+AITER_JIT_DIR="${AITER_JIT_DIR:-/opt/aiter-jit}"
 ALPS_PACKAGE_HELPERS="${ALPS_PACKAGE_HELPERS:-/opt/alps/package-helpers.sh}"
 PIP_CONSTRAINT="${PIP_CONSTRAINT:?PIP_CONSTRAINT is required}"
 
@@ -38,7 +38,7 @@ source "${ALPS_PACKAGE_HELPERS}"
 
 src_dir=/opt/aiter
 dist_dir=/tmp/aiter-dist
-rm -rf "${src_dir}" "${dist_dir}" "${AITER_JIT_SEED_DIR}"
+rm -rf "${src_dir}" "${dist_dir}" "${AITER_JIT_DIR}"
 
 git clone --depth=1 --branch "${AITER_REF}" --recurse-submodules --shallow-submodules \
     "${AITER_REPO}" "${src_dir}"
@@ -59,10 +59,10 @@ pip_install python --no-cache-dir --no-deps "${dist_dir}"/*.whl
 
 # Build the core module through jit/core.py loaded standalone. Importing the
 # installed aiter package can probe for a GPU, but image builders have none.
-mkdir -p "${AITER_JIT_SEED_DIR}"
+mkdir -p "${AITER_JIT_DIR}"
 env -u ROCM_PATH -u HIP_PATH \
     AITER_USE_SYSTEM_TRITON=1 \
-    AITER_JIT_DIR="${AITER_JIT_SEED_DIR}" \
+    AITER_JIT_DIR="${AITER_JIT_DIR}" \
     GPU_ARCHS="${GPU_ARCHS}" \
     MAX_JOBS="${MAX_JOBS}" \
     python - "${src_dir}" <<'PY'
@@ -89,15 +89,15 @@ core.build_module(
 )
 PY
 
-rm -rf "${AITER_JIT_SEED_DIR}/build"
-mkdir -p "${AITER_JIT_SEED_DIR}/build"
+rm -rf "${AITER_JIT_DIR}/build"
+mkdir -p "${AITER_JIT_DIR}/build"
 shopt -s nullglob
-baked_modules=("${AITER_JIT_SEED_DIR}"/module_aiter_core*.so)
+baked_modules=("${AITER_JIT_DIR}"/module_aiter_core*.so)
 shopt -u nullglob
 [[ ${#baked_modules[@]} -gt 0 ]] \
-    || { echo "ERROR: no AITER core module in ${AITER_JIT_SEED_DIR}" >&2; exit 1; }
-chmod -R a+rX "${AITER_JIT_SEED_DIR}"
+    || { echo "ERROR: no AITER core module in ${AITER_JIT_DIR}" >&2; exit 1; }
+chmod -R a+rwX "${AITER_JIT_DIR}"
 
 installed_version="$(python -c 'import importlib.metadata as m; print(m.version("amd-aiter"))')"
-echo "OK: AITER ${installed_version} (${AITER_COMMIT}) installed; seed modules: ${baked_modules[*]##*/}"
+echo "OK: AITER ${installed_version} (${AITER_COMMIT}) installed; preseeded cache modules: ${baked_modules[*]##*/}"
 rm -rf "${src_dir}" "${dist_dir}"

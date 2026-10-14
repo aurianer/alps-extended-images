@@ -25,9 +25,9 @@ Older vLLM releases may need fewer changes. Releases `0.22` and older are suspec
 
 The ROCm variant installs [AITER](https://github.com/ROCm/aiter), AMD's AI Tensor Engine for ROCm, as a non-editable wheel built by `sources/install-aiter.sh` from the exact revision recorded in the image label. The wheel carries the sources required by AITER's runtime JIT; the build checkout is removed. AITER provides MLA prefill/decode, fused MoE, RMS norm, and intra-node all-reduce kernels, including the ROCm sparse-MLA implementations required by models such as GLM-5.x.
 
-vLLM defaults `VLLM_ROCM_USE_AITER` to false. Set `VLLM_ROCM_USE_AITER=1` in the EDF or job environment to enable its AITER paths. Kernels not present in the image seed are JIT-compiled with `hipcc` on first use.
+vLLM defaults `VLLM_ROCM_USE_AITER` to false. Set `VLLM_ROCM_USE_AITER=1` in the EDF or job environment to enable its AITER paths. Kernels not already present in the preseeded image cache are JIT-compiled with `hipcc` on first use.
 
-`/opt/aiter-jit` is an immutable seed containing AITER's prebuilt core module; the image deliberately does not set it as the live cache. Copy it to a writable per-job or persistent directory before setting `AITER_JIT_DIR`, for example `mkdir -p <path> && cp -r /opt/aiter-jit/. <path>/ && export AITER_JIT_DIR=<path>`. The ROCm Ray/UCCL CI job points its read-only AITER import at this seed. The ROCm-only `aiter` CI job copies the seed into a writable cache, resolves vLLM's AITER MLA backend, JIT-compiles an RMS-norm kernel, and compares its output with Torch.
+`AITER_JIT_DIR` defaults to the writable `/opt/aiter-jit` cache, which contains AITER's prebuilt core module and accepts additional runtime-compiled kernels. The ROCm Ray/UCCL CI job imports AITER from this cache. The ROCm-only `aiter` CI job verifies that the image cache is writable, copies it to a private test cache, resolves vLLM's AITER MLA backend, JIT-compiles an RMS-norm kernel, and compares its output with Torch without polluting the shared cache.
 
 ## Mooncake (CXI KV transfer)
 

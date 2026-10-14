@@ -2,16 +2,21 @@
 # Single-node smoke test for the AITER install in the ROCm vLLM image:
 # the package imports, vLLM resolves its AITER MLA prefill backend, and one
 # kernel JIT-compiles and runs on a GPU (exercises hipcc and the ROCm prefix).
-# The first step runs against the immutable seed baked into the image and fails
-# if that seed is modified.
+# The first step runs against the writable cache baked into the image and fails
+# if the prebuilt core module is recompiled.
 set -euo pipefail
 
-baked_dir=/opt/aiter-jit
-[[ -d "${baked_dir}" ]] || { echo "FATAL: missing AITER JIT seed: ${baked_dir}" >&2; exit 1; }
+baked_dir="${AITER_JIT_DIR:?AITER_JIT_DIR unset; not the ROCm vLLM image?}"
+[[ -d "${baked_dir}" ]] || { echo "FATAL: missing AITER JIT cache: ${baked_dir}" >&2; exit 1; }
 work_dir="$(mktemp -d)"
 trap 'rm -rf "${work_dir}"' EXIT
 export AITER_JIT_DIR="${baked_dir}"
 export VLLM_ROCM_USE_AITER=1
+if ! write_probe="$(mktemp "${baked_dir}/.write-test.XXXXXX")"; then
+    echo "FATAL: AITER JIT cache is not writable: ${baked_dir}" >&2
+    exit 1
+fi
+rm -f "${write_probe}"
 
 touch "${work_dir}/marker"
 python -c "
@@ -21,9 +26,9 @@ MLAPrefillBackendEnum.ROCM_AITER_FA.get_class()
 "
 rebuilt="$(find "${baked_dir}" -maxdepth 1 -name '*.so' -newer "${work_dir}/marker")"
 [[ -z "${rebuilt}" ]] || { echo "FATAL: baked AITER cache was recompiled: ${rebuilt}" >&2; exit 1; }
-echo "OK: baked AITER seed in ${baked_dir} used without recompiling"
+echo "OK: prebuilt AITER cache in ${baked_dir} used without recompiling and is writable"
 
-# JIT into a private copy so the image seed stays untouched and concurrent runs cannot clash.
+# JIT into a private copy so this test does not mutate the shared runtime cache.
 export AITER_JIT_DIR="${work_dir}/jit"
 mkdir -p "${AITER_JIT_DIR}"
 cp -r "${baked_dir}/." "${AITER_JIT_DIR}/"

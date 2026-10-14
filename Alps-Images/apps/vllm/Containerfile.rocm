@@ -44,6 +44,7 @@ ENV VLLM_TARGET_DEVICE="${VLLM_TARGET_DEVICE}" \
     PYTHONNOUSERSITE="1" \
     LIBRARY_PATH="/opt/rocm/lib:/opt/rocm/lib64" \
     TVM_FFI_CACHE_DIR="/opt/alps/tvm-ffi" \
+    AITER_JIT_DIR="/opt/aiter-jit" \
     UCCL_EP_TRANSPORT="cxi" \
     UCCL_SOCKET_IFNAME="hsn"
 
@@ -121,7 +122,7 @@ RUN set -eux; \
       AITER_COMMIT="${AITER_COMMIT}" \
       GPU_ARCHS="${PYTORCH_ROCM_ARCH}" \
       MAX_JOBS="${MAX_JOBS}" \
-      AITER_JIT_SEED_DIR=/opt/aiter-jit \
+      AITER_JIT_DIR="${AITER_JIT_DIR}" \
       bash /opt/alps/install-aiter.sh; \
     rm -rf /opt/uccl /tmp/uccl-ep-build; \
     git init -q /opt/uccl; \
