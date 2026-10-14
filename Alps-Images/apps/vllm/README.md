@@ -14,6 +14,10 @@ The ROCm variant installs [AITER](https://github.com/ROCm/aiter), AMD's AI Tenso
 
 Kernels are JIT-compiled with hipcc on first use. The image sets `AITER_JIT_DIR=/opt/aiter-jit`, which holds the modules compiled at build time. To keep other kernels across jobs, point `AITER_JIT_DIR` (and `AITER_ROOT_DIR`) at a persistent, writable path such as scratch, seeded with `cp -r /opt/aiter-jit/. <path>`; otherwise every job recompiles into the container overlay.
 
+The patches in `patches/aiter/` are applied to the AITER sources at build time, in name order, until they are merged upstream:
+
+- `0001-mi300a-xcd-count.patch`: derive the XCD count from the GPU (6 on MI300A) instead of assuming 8.
+
 ## Mooncake (CXI KV transfer)
 
 Both variants additionally install the [Mooncake](https://github.com/kvcache-ai/Mooncake) transfer engine with the HPE Slingshot (CXI) backend (`USE_CXI`, [kvcache-ai/Mooncake#2535](https://github.com/kvcache-ai/Mooncake/pull/2535)). It is built from a pinned tag by `sources/install-mooncake.sh` (which is part of the app content hash) and installed as the `mooncake-transfer-engine` wheel, providing the `mooncake.engine` and `mooncake.store` modules used by vLLM's `MooncakeConnector` and `MooncakeStoreConnector` KV connectors.
